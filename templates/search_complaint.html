@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search Complaints by Email</title>
+    <link rel="stylesheet" href="/static/my_complaints.css">
+</head>
+<body>
+
+<header>
+    <h1>Search Complaints</h1>
+    <nav>
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/submit">Submit Complaint</a></li>
+            <li><a href="/search_complaint" class="active">My Complaints</a></li>
+            
+            <li><a href="/logout">Logout</a></li>
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <section class="search-form">
+        <h2>Enter Email to View Complaints</h2>
+        <form method="POST">
+            <input type="email" name="email" placeholder="Enter email address" required>
+            <button type="submit">Search</button>
+        </form>
+    </section>
+
+    {% if email %}
+        <section class="complaint-list">
+            <h2>Complaints for: {{ email }}</h2>
+            {% if complaints %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Register No</th>
+                            <th>Category</th>
+                            <th>Title</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in complaints %}
+                        <tr>
+                            <td>{{ c[0] }}</td>
+                            <td>{{ c[1] }}</td>
+                            <td>{{ c[3] }}</td>
+                            <td>{{ c[6] }}</td>
+                            <td>{{ c[7] }}</td>
+                            <td>{{ c[9] }}</td>
+                            <td>{{ c[10] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="no-data">No complaints found for this email.</p>
+            {% endif %}
+        </section>
+    {% endif %}
+</main>
+
+<footer>
+    <p>© 2025 Student Complaint System</p>
+</footer>
+
+</body>
+</html>

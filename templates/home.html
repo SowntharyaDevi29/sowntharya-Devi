@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <title>Home - Student Complaint System</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>STUDENT COMPLAINT SYSTEM</h1>
+        <nav>
+            <ul>
+                <li><a href="/" class="active">Home</a></li>
+                <li><a href="/submit">Submit Complaint</a></li>
+                <li><a href="/search_complaint">My Complaints</a></li>
+                <li><a href="/admin_login">Admin Dashboard</a></li>
+                <li><a href="/logout">logout</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="welcome">
+            <h2>Welcome, Students!</h2>
+            <p>This system allows only verified students to submit complaints. Categories include:</p>
+            <ul>
+                <li>👨‍🏫 STAFF</li>
+                <li>🏅 SPORTS</li>
+                <li>🍽️ CANTEEN</li>
+                <li>📝 EXAM</li>
+                <li>🚰 WATER FACILITY</li>
+                <li>📌 OTHER</li>
+            </ul>
+            <p>You must enter your <strong>Registration Number</strong>, <strong>Department</strong>, and <strong>Year</strong> to continue.</p>
+            <a href="/submit" class="start-button">Submit a Complaint</a>
+        </section>
+        <section class="info-section">
+            <h3>🔍 How the Complaint System Works</h3>
+            <ol>
+                <li>Your complaint is securely recorded with the current timestamp.</li>
+                <li>Student verification is done via Registration Number, Department, and Year.</li>
+                <li>Admin reviews and takes action on the complaint.</li>
+                <li>You can track your complaint status via the "My Complaints" page.</li>
+                <li>Once resolved, the complaint is marked and closed.</li>
+            </ol>
+        </section>
+
+        <section class="benefits-section">
+            <h3>✅ Why Use This Complaint System?</h3>
+            <ul>
+                <li>🔒 <strong>Safe & Secure:</strong> Your complaint is confidential and protected.</li>
+                <li>⏱️ <strong>Timely Action:</strong> Complaints are reviewed and acted upon quickly.</li>
+                <li>📊 <strong>Transparent Tracking:</strong> You can track your complaint status anytime.</li>
+                <li>✅ <strong>Resolution Guaranteed:</strong> Admins ensure appropriate action is taken.</li>
+            </ul>
+        </section>
+
+        <section class="admin-section">
+            <h3>🔐 Admin Access</h3>
+            <p>If you're an administrator, please login to view and manage student complaints:</p>
+            <a href="/admin_login" class="start-button">Admin Login</a>
+        </section>
+    </main>
+
+    <footer>
+        <p>© 2025 Student Complaint System. All rights reserved.</p>
+    </footer>
+</body>
+</html>

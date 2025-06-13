@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Complaints - Student Complaint System</title>
+    <link rel="stylesheet" href="/static/my_complaints.css">
+</head>
+<body>
+
+<header>
+    <h1>Student Complaint System</h1>
+    <nav>
+            <ul>
+                <li><a href="/" class="active">Home</a></li>
+                <li><a href="/submit">Submit Complaint</a></li>
+                <li><a href="/search_complaint">My Complaints</a></li>
+                <li><a href="/admin_login">Admin Dashboard</a></li>
+                <li><a href="/logout">logout</a></li>
+            </ul>
+    </nav>
+</header>
+
+<main>
+    <section class="complaint-list">
+        <h2>Complaints Submitted by {{ email }}</h2>
+
+        {% if complaints %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Category</th>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th>Submitted On</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in complaints %}
+                    <tr>
+                        <td>{{ c[0] }}</td> <!-- complaint_id -->
+                        <td>{{ c[5] }}</td> <!-- category -->
+                        <td>{{ c[6] }}</td> <!-- title -->
+                        <td>{{ c[8] }}</td> <!-- status -->
+                        <td>{{ c[9] }}</td> <!-- submitted_on -->
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="no-data">You have not submitted any complaints.</p>
+        {% endif %}
+    </section>
+</main>
+
+<footer>
+    <p>© 2025 Student Complaint System. All rights reserved.</p>
+</footer>
+
+</body>
+</html>

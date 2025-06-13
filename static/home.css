@@ -1,0 +1,87 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f8f5;
+    color: #333;
+    margin: 0;
+}
+
+header {
+    background-color: #4CAF50;
+    color: white;
+    text-align: center;
+    padding: 20px 0;
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 0;
+    margin: 10px 0;
+}
+
+nav ul li a {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    padding: 8px 16px;
+    border-radius: 5px;
+}
+
+nav ul li a:hover,
+nav ul li a.active {
+    background-color: #388e3c;
+}
+
+.welcome {
+    max-width: 700px;
+    margin: 40px auto;
+    background-color: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.welcome h2 {
+    margin-bottom: 20px;
+}
+
+.welcome ul {
+    list-style: none;
+    padding-left: 0;
+    text-align: left;
+    max-width: 400px;
+    margin: 0 auto 20px auto;
+}
+
+.welcome ul li {
+    margin-bottom: 8px;
+    font-size: 16px;
+}
+
+.start-button {
+    display: inline-block;
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px 24px;
+    font-size: 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.start-button:hover {
+    background-color: #2e7d32;
+}
+
+footer {
+    text-align: center;
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px 0;
+    margin-top: 50px;
+}
