@@ -1,63 +1,74 @@
+import os
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_mysqldb import MySQL
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = 'a5a4s8r6h1q2d3h8'
+app.secret_key = os.environ.get('SECRET_KEY', 'a5a4s8r6h1q2d3h8')  # Fallback for local dev
 
-# MySQL configuration
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'Dhanush@1'
-app.config['MYSQL_DB'] = 'complaint_db'
+# MySQL configuration from environment variables
+app.config['MYSQL_HOST'] = os.environ.get('MYSQL_HOST')
+app.config['MYSQL_USER'] = os.environ.get('MYSQL_USER')
+app.config['MYSQL_PASSWORD'] = os.environ.get('MYSQL_PASSWORD')
+app.config['MYSQL_DB'] = os.environ.get('MYSQL_DB')
+app.config['MYSQL_CURSORCLASS'] = 'DictCursor'  # Optional: for dict-based results
 
 mysql = MySQL(app)
 
 # Initialize database tables
 def init_db():
-    cur = mysql.connection.cursor()
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(50) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL
-        )
-    ''')
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS students (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            register_number VARCHAR(20) UNIQUE NOT NULL,
-            department VARCHAR(50) NOT NULL,
-            year VARCHAR(10) NOT NULL
-        )
-    ''')
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS complaints (
-            complaint_id INT AUTO_INCREMENT PRIMARY KEY,
-            student_name VARCHAR(100) NOT NULL,
-            email VARCHAR(100) NOT NULL,
-            register_number VARCHAR(20) NOT NULL,
-            department VARCHAR(50) NOT NULL,
-            year VARCHAR(10) NOT NULL,
-            category VARCHAR(50) NOT NULL,
-            title VARCHAR(100) NOT NULL,
-            description TEXT NOT NULL,
-            status VARCHAR(20) DEFAULT 'Submitted',
-            submitted_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS admins (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            admin_id VARCHAR(50) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL
-        )
-    ''')
-    mysql.connection.commit()
-    cur.close()
+    try:
+        with app.app_context():
+            if mysql.connection is None:
+                raise Exception("MySQL connection is not established")
+            cur = mysql.connection.cursor()
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL
+                )
+            ''')
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS students (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    register_number VARCHAR(20) UNIQUE NOT NULL,
+                    department VARCHAR(50) NOT NULL,
+                    year VARCHAR(10) NOT NULL
+                )
+            ''')
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS complaints (
+                    complaint_id INT AUTO_INCREMENT PRIMARY KEY,
+                    student_name VARCHAR(100) NOT NULL,
+                    email VARCHAR(100) NOT NULL,
+                    register_number VARCHAR(20) NOT NULL,
+                    department VARCHAR(50) NOT NULL,
+                    year VARCHAR(10) NOT NULL,
+                    category VARCHAR(50) NOT NULL,
+                    title VARCHAR(100) NOT NULL,
+                    description TEXT NOT NULL,
+                    status VARCHAR(20) DEFAULT 'Submitted',
+                    submitted_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS admins (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    admin_id VARCHAR(50) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL
+                )
+            ''')
+            mysql.connection.commit()
+            cur.close()
+            print("Database initialized successfully")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+        raise
 
-# Initialize database
-with app.app_context():
+# Run database initialization before the first request
+@app.before_first_request
+def initialize_database():
     init_db()
 
 @app.route('/')
@@ -72,17 +83,21 @@ def login():
         username = request.form['username']
         password = request.form['password']
         
-        cur = mysql.connection.cursor()
-        cur.execute('SELECT password FROM users WHERE username = %s', (username,))
-        user = cur.fetchone()
-        cur.close()
-        
-        if user and check_password_hash(user[0], password):
-            session['username'] = username
-            flash('Login successful!', 'success')
-            return redirect(url_for('home'))
-        else:
-            flash('Invalid username or password', 'error')
+        try:
+            cur = mysql.connection.cursor()
+            cur.execute('SELECT password FROM users WHERE username = %s', (username,))
+            user = cur.fetchone()
+            cur.close()
+            
+            if user and check_password_hash(user[0], password):
+                session['username'] = username
+                flash('Login successful!', 'success')
+                return redirect(url_for('home'))
+            else:
+                flash('Invalid username or password', 'error')
+                return redirect(url_for('login'))
+        except Exception as e:
+            flash(f'Error: {e}', 'error')
             return redirect(url_for('login'))
     
     return render_template('login.html')
@@ -103,9 +118,8 @@ def signup():
             cur.close()
             flash('Signup successful! Please log in.', 'success')
             return redirect(url_for('login'))
-        except Exception as err:
-            flash(f'Error: {err}', 'error')
-            cur.close()
+        except Exception as e:
+            flash(f'Error: {e}', 'error')
             return redirect(url_for('signup'))
     
     return render_template('signup.html')
@@ -132,33 +146,43 @@ def submit_complaint():
         title = request.form['title']
         description = request.form['description']
 
-        cur = mysql.connection.cursor()
-        cur.execute("SELECT * FROM students WHERE register_number = %s AND department = %s AND year = %s",
-                    (register_number, department, year))
-        student = cur.fetchone()
+        try:
+            cur = mysql.connection.cursor()
+            cur.execute("SELECT * FROM students WHERE register_number = %s AND department = %s AND year = %s",
+                        (register_number, department, year))
+            student = cur.fetchone()
 
-        if not student:
+            if not student:
+                cur.close()
+                return render_template('submit_complaint.html', error="You are not a verified student. Complaint not accepted.")
+
+            cur.execute("""
+                INSERT INTO complaints (student_name, email, register_number, department, year, category, title, description, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Submitted')
+            """, (name, email, register_number, department, year, category, title, description))
+            mysql.connection.commit()
             cur.close()
-            return render_template('submit_complaint.html', error="You are not a verified student. Complaint not accepted.")
 
-        cur.execute("""
-            INSERT INTO complaints (student_name, email, register_number, department, year, category, title, description, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Submitted')
-        """, (name, email, register_number, department, year, category, title, description))
-        mysql.connection.commit()
-        cur.close()
-
-        return redirect(f'/my_complaint?email={email}')
+            return redirect(f'/my_complaint?email={email}')
+        except Exception as e:
+            flash(f'Error submitting complaint: {e}', 'error')
+            return render_template('submit_complaint.html')
 
     return render_template('submit_complaint.html')
 
 @app.route('/my_complaint')
 def my_complaints():
     email = request.args.get('email')
-    cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM complaints WHERE email = %s", (email,))
-    complaints = cur.fetchall()
-    return render_template('my_complaint.html', complaints=complaints, email=email)
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM complaints WHERE email = %s", (email,))
+        complaints = cur.fetchall()
+        cur.close()
+        return render_template('my_complaint.html', complaints=complaints, email=email)
+    except Exception as e:
+        flash(f'Error fetching complaints: {e}', 'error')
+        return render_template('my_complaint.html', complaints=[], email=email)
+
 @app.route('/search_complaint', methods=['GET', 'POST'])
 def search_complaint():
     complaints = []
@@ -166,14 +190,15 @@ def search_complaint():
 
     if request.method == 'POST':
         email = request.form.get('email')
-        cur = mysql.connection.cursor()
-        cur.execute("SELECT * FROM complaints WHERE email = %s", (email,))
-        complaints = cur.fetchall()
-        cur.close()
+        try:
+            cur = mysql.connection.cursor()
+            cur.execute("SELECT * FROM complaints WHERE email = %s", (email,))
+            complaints = cur.fetchall()
+            cur.close()
+        except Exception as e:
+            flash(f'Error searching complaints: {e}', 'error')
 
     return render_template('search_complaint.html', complaints=complaints, email=email)
-
-
 
 @app.route('/admin_login', methods=['GET', 'POST'])
 def admin_login():
@@ -181,28 +206,30 @@ def admin_login():
         admin_id = request.form['admin_id']
         password = request.form['password']
 
-        cur = mysql.connection.cursor()
-        cur.execute("SELECT password FROM admins WHERE admin_id = %s", (admin_id,))
-        admin = cur.fetchone()
-        cur.close()
+        try:
+            cur = mysql.connection.cursor()
+            cur.execute("SELECT password FROM admins WHERE admin_id = %s", (admin_id,))
+            admin = cur.fetchone()
+            cur.close()
 
-        # Check if admin exists, password is not NULL, and passwords match
-        if admin and admin[0] is not None and admin[0] == password:
-            session['admin_logged_in'] = True
-            flash('Admin login successful!', 'success')
-            return redirect(url_for('admin'))
-        else:
-            flash('Invalid admin ID or password', 'error')
-            return render_template('admin_login.html', error="Invalid admin ID or password")
+            if admin and check_password_hash(admin[0], password):
+                session['admin_logged_in'] = True
+                flash('Admin login successful!', 'success')
+                return redirect(url_for('admin'))
+            else:
+                flash('Invalid admin ID or password', 'error')
+                return render_template('admin_login.html', error="Invalid admin ID or password")
+        except Exception as e:
+            flash(f'Error: {e}', 'error')
+            return render_template('admin_login.html', error="Error during login")
 
     return render_template('admin_login.html')
+
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if not session.get('admin_logged_in'):
         flash('Please log in as admin.', 'error')
         return redirect(url_for('admin_login'))
-
-    cur = mysql.connection.cursor()
 
     if request.method == 'POST':
         complaint_id = request.form.get('complaint_id')
@@ -211,6 +238,7 @@ def admin():
             allowed_statuses = ['Submitted', 'Pending', 'In Progress', 'Resolved']
             if new_status in allowed_statuses:
                 try:
+                    cur = mysql.connection.cursor()
                     cur.execute("SELECT 1 FROM complaints WHERE complaint_id = %s", (complaint_id,))
                     if not cur.fetchone():
                         flash("Complaint ID does not exist.", "error")
@@ -218,28 +246,27 @@ def admin():
                         cur.execute("UPDATE complaints SET status = %s WHERE complaint_id = %s", (new_status, complaint_id))
                         mysql.connection.commit()
                         flash("Status updated successfully.", "success")
+                    cur.close()
                 except Exception as e:
                     flash(f"Error updating status: {str(e)}", "error")
-                finally:
-                    cur.close()
             else:
                 flash("Invalid status selected.", "error")
-                cur.close()
         else:
             flash("Missing complaint ID or status.", "error")
         return redirect(url_for('admin'))
 
-    cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM complaints ORDER BY submitted_on DESC")
-    complaints = cur.fetchall()
-    cur.close()
-    return render_template('admin_dash.html', complaints=complaints)
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM complaints ORDER BY submitted_on DESC")
+        complaints = cur.fetchall()
+        cur.close()
+        return render_template('admin_dash.html', complaints=complaints)
+    except Exception as e:
+        flash(f'Error fetching complaints: {e}', 'error')
+        return render_template('admin_dash.html', complaints=[])
 
 @app.route('/admin_logout')
 def admin_logout():
     session.pop('admin_logged_in', None)
     flash('Admin logged out successfully.', 'success')
     return redirect(url_for('admin_login'))
-
-if __name__ == '__main__':
-    app.run(debug=True)
