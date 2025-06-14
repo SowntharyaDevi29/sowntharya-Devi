@@ -15,8 +15,12 @@ app.config['MYSQL_CURSORCLASS'] = 'DictCursor'  # Optional: for dict-based resul
 
 mysql = MySQL(app)
 
+# Flag to track if database has been initialized
+db_initialized = False
+
 # Initialize database tables
 def init_db():
+    global db_initialized
     try:
         with app.app_context():
             if mysql.connection is None:
@@ -62,14 +66,17 @@ def init_db():
             mysql.connection.commit()
             cur.close()
             print("Database initialized successfully")
+            db_initialized = True
     except Exception as e:
         print(f"Error initializing database: {e}")
         raise
 
 # Run database initialization before the first request
-@app.before_first_request
+@app.before_request
 def initialize_database():
-    init_db()
+    global db_initialized
+    if not db_initialized:
+        init_db()
 
 @app.route('/')
 def home():
@@ -270,3 +277,6 @@ def admin_logout():
     session.pop('admin_logged_in', None)
     flash('Admin logged out successfully.', 'success')
     return redirect(url_for('admin_login'))
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
