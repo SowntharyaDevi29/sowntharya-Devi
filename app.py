@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_mysqldb import MySQL
 from werkzeug.security import generate_password_hash, check_password_hash
+import mysql.connector
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'a5a4s8r6h1q2d3h8')  # Fallback for local dev
@@ -23,8 +24,28 @@ def init_db():
     global db_initialized
     try:
         with app.app_context():
+            # Debug: Print MySQL config to verify environment variables
+            print(f"Attempting to connect to MySQL with: "
+                  f"host={app.config['MYSQL_HOST']}, "
+                  f"user={app.config['MYSQL_USER']}, "
+                  f"db={app.config['MYSQL_DB']}")
+
             if mysql.connection is None:
-                raise Exception("MySQL connection is not established")
+                # Attempt a direct connection to diagnose the issue
+                try:
+                    conn = mysql.connector.connect(
+                        host=app.config['MYSQL_HOST'],
+                        user=app.config['MYSQL_USER'],
+                        password=app.config['MYSQL_PASSWORD'],
+                        database=app.config['MYSQL_DB']
+                    )
+                    conn.close()
+                    print("Direct MySQL connection test successful")
+                except mysql.connector.Error as e:
+                    raise Exception(f"MySQL connection test failed: {str(e)}")
+
+                raise Exception("MySQL connection is not established via Flask-MySQLdb")
+
             cur = mysql.connection.cursor()
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS users (
@@ -68,7 +89,7 @@ def init_db():
             print("Database initialized successfully")
             db_initialized = True
     except Exception as e:
-        print(f"Error initializing database: {e}")
+        print(f"Error initializing database: {str(e)}")
         raise
 
 # Run database initialization before the first request
@@ -76,7 +97,11 @@ def init_db():
 def initialize_database():
     global db_initialized
     if not db_initialized:
-        init_db()
+        try:
+            init_db()
+        except Exception as e:
+            flash(f"Database initialization failed: {str(e)}", "error")
+            return render_template('error.html', error=str(e)), 500
 
 @app.route('/')
 def home():
@@ -96,7 +121,7 @@ def login():
             user = cur.fetchone()
             cur.close()
             
-            if user and check_password_hash(user[0], password):
+            if user and check_password_hash(user['password'], password):
                 session['username'] = username
                 flash('Login successful!', 'success')
                 return redirect(url_for('home'))
@@ -104,7 +129,7 @@ def login():
                 flash('Invalid username or password', 'error')
                 return redirect(url_for('login'))
         except Exception as e:
-            flash(f'Error: {e}', 'error')
+            flash(f'Error: {str(e)}', 'error')
             return redirect(url_for('login'))
     
     return render_template('login.html')
@@ -126,7 +151,7 @@ def signup():
             flash('Signup successful! Please log in.', 'success')
             return redirect(url_for('login'))
         except Exception as e:
-            flash(f'Error: {e}', 'error')
+            flash(f'Error: {str(e)}', 'error')
             return redirect(url_for('signup'))
     
     return render_template('signup.html')
@@ -172,7 +197,7 @@ def submit_complaint():
 
             return redirect(f'/my_complaint?email={email}')
         except Exception as e:
-            flash(f'Error submitting complaint: {e}', 'error')
+            flash(f'Error submitting complaint: {str(e)}', 'error')
             return render_template('submit_complaint.html')
 
     return render_template('submit_complaint.html')
@@ -187,7 +212,7 @@ def my_complaints():
         cur.close()
         return render_template('my_complaint.html', complaints=complaints, email=email)
     except Exception as e:
-        flash(f'Error fetching complaints: {e}', 'error')
+        flash(f'Error fetching complaints: {str(e)}', 'error')
         return render_template('my_complaint.html', complaints=[], email=email)
 
 @app.route('/search_complaint', methods=['GET', 'POST'])
@@ -203,7 +228,7 @@ def search_complaint():
             complaints = cur.fetchall()
             cur.close()
         except Exception as e:
-            flash(f'Error searching complaints: {e}', 'error')
+            flash(f'Error searching complaints: {str(e)}', 'error')
 
     return render_template('search_complaint.html', complaints=complaints, email=email)
 
@@ -219,7 +244,7 @@ def admin_login():
             admin = cur.fetchone()
             cur.close()
 
-            if admin and check_password_hash(admin[0], password):
+            if admin and check_password_hash(admin['password'], password):
                 session['admin_logged_in'] = True
                 flash('Admin login successful!', 'success')
                 return redirect(url_for('admin'))
@@ -227,7 +252,7 @@ def admin_login():
                 flash('Invalid admin ID or password', 'error')
                 return render_template('admin_login.html', error="Invalid admin ID or password")
         except Exception as e:
-            flash(f'Error: {e}', 'error')
+            flash(f'Error: {str(e)}', 'error')
             return render_template('admin_login.html', error="Error during login")
 
     return render_template('admin_login.html')
@@ -269,7 +294,7 @@ def admin():
         cur.close()
         return render_template('admin_dash.html', complaints=complaints)
     except Exception as e:
-        flash(f'Error fetching complaints: {e}', 'error')
+        flash(f'Error fetching complaints: {str(e)}', 'error')
         return render_template('admin_dash.html', complaints=[])
 
 @app.route('/admin_logout')
