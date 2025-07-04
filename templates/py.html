@@ -1,0 +1,158 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/>from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask_mysqldb import MySQL
+from werkzeug.security import generate_password_hash, check_password_hash
+
+app = Flask(__name__)
+app.secret_key = 'your_secret_key_here'
+
+# MySQL Configuration
+app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_USER'] = 'root'
+app.config['MYSQL_PASSWORD'] = 'your_mysql_password'
+app.config['MYSQL_DB'] = 'complaint_db'
+
+mysql = MySQL(app)
+
+# Route: Home
+@app.route('/')
+def home():
+    return render_template('home.html')
+
+# Route: Signup
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = generate_password_hash(request.form['password'])
+
+        cur = mysql.connection.cursor()
+        cur.execute("INSERT INTO students (username, password) VALUES (%s, %s)", (username, password))
+        mysql.connection.commit()
+        cur.close()
+
+        flash("Signup successful! Please log in.", "success")
+        return redirect(url_for('login'))
+    return render_template('signup.html')
+
+# Route: Login
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password_input = request.form['password']
+
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM students WHERE username = %s", (username,))
+        user = cur.fetchone()
+        cur.close()
+
+        if user and check_password_hash(user[2], password_input):
+            session['username'] = username
+            return redirect(url_for('home'))
+        else:
+            flash("Invalid username or password", "error")
+    return render_template('login.html')
+
+# Route: Logout
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('home'))
+
+# Route: Submit Complaint
+@app.route('/submit', methods=['GET', 'POST'])
+def submit_complaint():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        data = {
+            'name': request.form['name'],
+            'email': request.form['email'],
+            'register_number': request.form['register_number'],
+            'department': request.form['department'],
+            'year': request.form['year'],
+            'category': request.form['category'],
+            'title': request.form['title'],
+            'description': request.form['description']
+        }
+
+        cur = mysql.connection.cursor()
+        cur.execute("""INSERT INTO complaints (name, email, register_number, department, year, category, title, description)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (data['name'], data['email'], data['register_number'], data['department'], data['year'],
+                     data['category'], data['title'], data['description']))
+        mysql.connection.commit()
+        cur.close()
+
+        flash("Complaint submitted successfully!", "success")
+        return redirect(url_for('my_complaints'))
+    return render_template('submit.html')
+
+# Route: View My Complaints
+@app.route('/search_complaint', methods=['GET', 'POST'])
+def my_complaints():
+    complaints = []
+    email = None
+
+    if request.method == 'POST':
+        email = request.form['email']
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM complaints WHERE email = %s", (email,))
+        complaints = cur.fetchall()
+        cur.close()
+
+    return render_template('my_complaints.html', complaints=complaints, email=email)
+
+# Route: Admin Login
+@app.route('/admin_login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form['admin_id']
+        password_input = request.form['password']
+
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM admins WHERE username = %s", (username,))
+        admin = cur.fetchone()
+        cur.close()
+
+        if admin and check_password_hash(admin[2], password_input):
+            session['admin_logged_in'] = True
+            return redirect(url_for('admin'))
+        else:
+            flash("Invalid admin credentials", "error")
+    return render_template('admin_login.html')
+
+# Route: Admin Dashboard
+@app.route('/admin')
+def admin():
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * FROM complaints")
+    complaints = cur.fetchall()
+    cur.close()
+    return render_template('admin_dashboard.html', complaints=complaints)
+
+# Route: Update Complaint Status (optional)
+@app.route('/update_status/<int:complaint_id>', methods=['POST'])
+def update_status(complaint_id):
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+
+    new_status = request.form['status']
+    cur = mysql.connection.cursor()
+    cur.execute("UPDATE complaints SET status = %s WHERE complaint_id = %s", (new_status, complaint_id))
+    mysql.connection.commit()
+    cur.close()
+    return redirect(url_for('admin'))
+
+# Route: Admin Logout
+@app.route('/admin_logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    return redirect(url_for('home'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
